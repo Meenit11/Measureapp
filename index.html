@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AR Measure</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="ar-container" class="app-container">
+        <video id="camera-feed" autoplay playsinline></video>
+        
+        <!-- Measurement UI -->
+        <div class="measurement-ui">
+            <div class="measurement-value">
+                <span id="distance">0.00</span>
+                <span class="unit">m</span>
+            </div>
+            
+            <div id="instruction" class="instruction">
+                Point camera at surface to start
+            </div>
+        </div>
+        
+        <!-- Controls -->
+        <div class="controls">
+            <button id="startButton" class="primary-button">
+                Start Measuring
+            </button>
+            <button id="captureButton" class="action-button" disabled>
+                Capture Point
+            </button>
+            <button id="resetButton" class="secondary-button" disabled>
+                Reset
+            </button>
+        </div>
+        
+        <!-- AR Canvas -->
+        <canvas id="ar-canvas"></canvas>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
