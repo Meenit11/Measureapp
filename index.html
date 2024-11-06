@@ -3,41 +3,278 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AR Measure</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Simple AR Measure</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, system-ui, BlinkMacSystemFont, sans-serif;
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        #app {
+            position: fixed;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #camera {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+        }
+
+        .ui {
+            position: absolute;
+            inset: 0;
+            z-index: 3;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .measurement {
+            margin-top: 40px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 90%;
+            max-width: 300px;
+        }
+
+        button {
+            padding: 16px;
+            border-radius: 25px;
+            border: none;
+            font-size: 16px;
+            font-weight: 600;
+            color: white;
+            background: rgba(0,0,0,0.7);
+            transition: all 0.3s;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+        }
+
+        .start-btn {
+            background: #007AFF;
+        }
+
+        .capture-btn {
+            background: #34C759;
+        }
+
+        .status {
+            position: absolute;
+            top: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7);
+            padding: 8px 16px;
+            border-radius: 15px;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+    </style>
 </head>
 <body>
-    <div id="ar-container" class="app-container">
-        <video id="camera-feed" autoplay playsinline></video>
-        
-        <!-- Measurement UI -->
-        <div class="measurement-ui">
-            <div class="measurement-value">
+    <div id="app">
+        <video id="camera" playsinline autoplay></video>
+        <canvas id="canvas"></canvas>
+        <div class="ui">
+            <div class="measurement">
                 <span id="distance">0.00</span>
-                <span class="unit">m</span>
+                <span>m</span>
             </div>
-            
-            <div id="instruction" class="instruction">
-                Point camera at surface to start
+            <div id="status" class="status">Ready to start</div>
+            <div class="controls">
+                <button id="startBtn" class="start-btn">Start Measuring</button>
+                <button id="captureBtn" class="capture-btn" disabled>Capture Point</button>
+                <button id="resetBtn" disabled>Reset</button>
             </div>
         </div>
-        
-        <!-- Controls -->
-        <div class="controls">
-            <button id="startButton" class="primary-button">
-                Start Measuring
-            </button>
-            <button id="captureButton" class="action-button" disabled>
-                Capture Point
-            </button>
-            <button id="resetButton" class="secondary-button" disabled>
-                Reset
-            </button>
-        </div>
-        
-        <!-- AR Canvas -->
-        <canvas id="ar-canvas"></canvas>
     </div>
-    <script src="script.js"></script>
+
+    <script>
+        class MeasureApp {
+            constructor() {
+                this.video = document.getElementById('camera');
+                this.canvas = document.getElementById('canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.distance = document.getElementById('distance');
+                this.status = document.getElementById('status');
+                this.startBtn = document.getElementById('startBtn');
+                this.captureBtn = document.getElementById('captureBtn');
+                this.resetBtn = document.getElementById('resetBtn');
+                
+                this.points = [];
+                this.active = false;
+
+                this.setupCanvas();
+                this.addEventListeners();
+            }
+
+            setupCanvas() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+            }
+
+            addEventListeners() {
+                window.addEventListener('resize', () => this.setupCanvas());
+                this.startBtn.addEventListener('click', () => this.start());
+                this.captureBtn.addEventListener('click', () => this.capture());
+                this.resetBtn.addEventListener('click', () => this.reset());
+            }
+
+            async start() {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: 'environment',
+                            width: { ideal: window.innerWidth },
+                            height: { ideal: window.innerHeight }
+                        }
+                    });
+
+                    this.video.srcObject = stream;
+                    await this.video.play();
+
+                    this.active = true;
+                    this.startBtn.style.display = 'none';
+                    this.captureBtn.disabled = false;
+                    this.resetBtn.disabled = false;
+                    this.status.textContent = 'Tap to capture first point';
+                    
+                    this.animate();
+                } catch (error) {
+                    console.error(error);
+                    this.status.textContent = 'Camera access denied';
+                }
+            }
+
+            capture() {
+                if (this.points.length < 2) {
+                    const point = {
+                        x: this.canvas.width / 2,
+                        y: this.canvas.height / 2
+                    };
+                    
+                    this.points.push(point);
+                    
+                    if (this.points.length === 1) {
+                        this.status.textContent = 'Move camera and tap to capture second point';
+                    } else {
+                        this.calculateDistance();
+                        this.status.textContent = 'Measurement complete';
+                        this.captureBtn.disabled = true;
+                    }
+                }
+            }
+
+            reset() {
+                this.points = [];
+                this.distance.textContent = '0.00';
+                this.status.textContent = 'Tap to capture first point';
+                this.captureBtn.disabled = false;
+            }
+
+            calculateDistance() {
+                if (this.points.length === 2) {
+                    const dx = this.points[1].x - this.points[0].x;
+                    const dy = this.points[1].y - this.points[0].y;
+                    const pixelDistance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    // Convert pixels to meters (approximate)
+                    const meters = (pixelDistance / this.canvas.width) * 2;
+                    this.distance.textContent = meters.toFixed(2);
+                }
+            }
+
+            drawUI() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // Draw crosshair
+                const centerX = this.canvas.width / 2;
+                const centerY = this.canvas.height / 2;
+                
+                this.ctx.strokeStyle = '#ffffff';
+                this.ctx.lineWidth = 2;
+                
+                // Vertical line
+                this.ctx.beginPath();
+                this.ctx.moveTo(centerX, centerY - 20);
+                this.ctx.lineTo(centerX, centerY + 20);
+                this.ctx.stroke();
+                
+                // Horizontal line
+                this.ctx.beginPath();
+                this.ctx.moveTo(centerX - 20, centerY);
+                this.ctx.lineTo(centerX + 20, centerY);
+                this.ctx.stroke();
+
+                // Draw points and line
+                if (this.points.length > 0) {
+                    this.points.forEach(point => {
+                        this.ctx.beginPath();
+                        this.ctx.arc(point.x, point.y, 6, 0, Math.PI * 2);
+                        this.ctx.fillStyle = '#007AFF';
+                        this.ctx.fill();
+                    });
+
+                    if (this.points.length === 2) {
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(this.points[0].x, this.points[0].y);
+                        this.ctx.lineTo(this.points[1].x, this.points[1].y);
+                        this.ctx.strokeStyle = '#007AFF';
+                        this.ctx.lineWidth = 2;
+                        this.ctx.stroke();
+                    }
+                }
+            }
+
+            animate() {
+                if (!this.active) return;
+                this.drawUI();
+                requestAnimationFrame(() => this.animate());
+            }
+        }
+
+        // Initialize app when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new MeasureApp();
+        });
+    </script>
 </body>
 </html>
