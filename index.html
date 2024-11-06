@@ -3,9 +3,110 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Simple AR Measure</title>
+    <title>Rectangle Measure</title>
     <style>
-        /* CSS styles unchanged */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, system-ui, BlinkMacSystemFont, sans-serif;
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        #app {
+            position: fixed;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #camera {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+        }
+
+        .ui {
+            position: absolute;
+            inset: 0;
+            z-index: 3;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .measurement {
+            margin-top: 40px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 90%;
+            max-width: 300px;
+        }
+
+        button {
+            padding: 16px;
+            border-radius: 25px;
+            border: none;
+            font-size: 16px;
+            font-weight: 600;
+            color: white;
+            background: rgba(0,0,0,0.7);
+            transition: all 0.3s;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+        }
+
+        .start-btn {
+            background: #007AFF;
+        }
+
+        .capture-btn {
+            background: #34C759;
+        }
+
+        .status {
+            position: absolute;
+            top: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7);
+            padding: 8px 16px;
+            border-radius: 15px;
+            font-size: 14px;
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body>
@@ -14,13 +115,16 @@
         <canvas id="canvas"></canvas>
         <div class="ui">
             <div class="measurement">
-                <span id="distance">0.00</span>
+                <span id="length">0.00</span>
+                <span>m</span>
+                <span> x </span>
+                <span id="width">0.00</span>
                 <span>m</span>
             </div>
             <div id="status" class="status">Ready to start</div>
             <div class="controls">
                 <button id="startBtn" class="start-btn">Start Measuring</button>
-                <button id="captureBtn" class="capture-btn" disabled>Capture Point</button>
+                <button id="captureBtn" class="capture-btn" disabled>Capture Rectangle</button>
                 <button id="resetBtn" disabled>Reset</button>
             </div>
         </div>
@@ -32,7 +136,8 @@
                 this.video = document.getElementById('camera');
                 this.canvas = document.getElementById('canvas');
                 this.ctx = this.canvas.getContext('2d');
-                this.distance = document.getElementById('distance');
+                this.length = document.getElementById('length');
+                this.width = document.getElementById('width');
                 this.status = document.getElementById('status');
                 this.startBtn = document.getElementById('startBtn');
                 this.captureBtn = document.getElementById('captureBtn');
@@ -95,7 +200,7 @@
                     this.startBtn.style.display = 'none';
                     this.captureBtn.disabled = false;
                     this.resetBtn.disabled = false;
-                    this.status.textContent = 'Tap to capture first point';
+                    this.status.textContent = 'Tap and drag to capture a rectangle';
                     
                     this.animate();
                 } catch (error) {
@@ -106,17 +211,13 @@
 
             capture() {
                 if (this.points.length < 2) {
-                    const point = {
+                    this.points.push({
                         x: this.currentX,
                         y: this.currentY
-                    };
+                    });
                     
-                    this.points.push(point);
-                    
-                    if (this.points.length === 1) {
-                        this.status.textContent = 'Move camera and tap to capture second point';
-                    } else {
-                        this.calculateDistance();
+                    if (this.points.length === 2) {
+                        this.calculateDimensions();
                         this.status.textContent = 'Measurement complete';
                         this.captureBtn.disabled = true;
                     }
@@ -125,67 +226,43 @@
 
             reset() {
                 this.points = [];
-                this.distance.textContent = '0.00';
-                this.status.textContent = 'Tap to capture first point';
+                this.length.textContent = '0.00';
+                this.width.textContent = '0.00';
+                this.status.textContent = 'Tap and drag to capture a rectangle';
                 this.captureBtn.disabled = false;
                 this.drawUI(); // Clear the canvas
             }
 
-            calculateDistance() {
+            calculateDimensions() {
                 if (this.points.length === 2) {
-                    const dx = this.points[1].x - this.points[0].x;
-                    const dy = this.points[1].y - this.points[0].y;
-                    const pixelDistance = Math.sqrt(dx * dx + dy * dy);
+                    const dx = Math.abs(this.points[1].x - this.points[0].x);
+                    const dy = Math.abs(this.points[1].y - this.points[0].y);
                     
                     // Convert pixels to meters using the reference ratio
-                    const meters = pixelDistance / this.PIXELS_PER_METER;
-                    this.distance.textContent = meters.toFixed(2);
+                    const lengthMeters = dx / this.PIXELS_PER_METER;
+                    const widthMeters = dy / this.PIXELS_PER_METER;
+                    
+                    this.length.textContent = lengthMeters.toFixed(2);
+                    this.width.textContent = widthMeters.toFixed(2);
                 } else {
-                    this.distance.textContent = '0.00';
+                    this.length.textContent = '0.00';
+                    this.width.textContent = '0.00';
                 }
             }
 
             drawUI() {
                 this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
                 
-                // Draw crosshair at current position
-                this.ctx.strokeStyle = '#ffffff';
-                this.ctx.lineWidth = 2;
-                
-                // Vertical line
-                this.ctx.beginPath();
-                this.ctx.moveTo(this.currentX, this.currentY - 20);
-                this.ctx.lineTo(this.currentX, this.currentY + 20);
-                this.ctx.stroke();
-                
-                // Horizontal line
-                this.ctx.beginPath();
-                this.ctx.moveTo(this.currentX - 20, this.currentY);
-                this.ctx.lineTo(this.currentX + 20, this.currentY);
-                this.ctx.stroke();
-
-                // Draw points and line
-                if (this.points.length > 0) {
-                    // Draw first point
-                    this.ctx.beginPath();
-                    this.ctx.arc(this.points[0].x, this.points[0].y, 6, 0, Math.PI * 2);
-                    this.ctx.fillStyle = '#007AFF';
-                    this.ctx.fill();
-
-                    // Draw line
-                    this.ctx.beginPath();
-                    this.ctx.moveTo(this.points[0].x, this.points[0].y);
+                // Draw rectangle
+                if (this.points.length === 2) {
+                    const startX = Math.min(this.points[0].x, this.points[1].x);
+                    const startY = Math.min(this.points[0].y, this.points[1].y);
+                    const width = Math.abs(this.points[1].x - this.points[0].x);
+                    const height = Math.abs(this.points[1].y - this.points[0].y);
                     
-                    if (this.points.length === 2) {
-                        this.ctx.lineTo(this.points[1].x, this.points[1].y);
-                        this.ctx.stroke();
-                        
-                        // Draw second point
-                        this.ctx.beginPath();
-                        this.ctx.arc(this.points[1].x, this.points[1].y, 6, 0, Math.PI * 2);
-                        this.ctx.fillStyle = '#34C759';
-                        this.ctx.fill();
-                    }
+                    this.ctx.strokeStyle = '#34C759';
+                    this.ctx.lineWidth = 4;
+                    this.ctx.strokeRect(startX, startY, width, height);
                 }
             }
 
