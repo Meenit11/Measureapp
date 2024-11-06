@@ -145,7 +145,7 @@
                 this.currentY = this.canvas.height / 2;
 
                 // Reference pixel to meter ratio (can be adjusted)
-                this.PIXELS_PER_METER = 200; // This is an approximate value
+                this.PIXELS_PER_METER = 200; // Adjust this based on actual device or distance reference
 
                 this.setupCanvas();
                 this.addEventListeners();
@@ -231,6 +231,7 @@
                 this.distance.textContent = '0.00';
                 this.status.textContent = 'Tap to capture first point';
                 this.captureBtn.disabled = false;
+                this.drawUI(); // Clear the canvas
             }
 
             calculateDistance() {
@@ -289,35 +290,32 @@
                     this.ctx.moveTo(this.points[0].x, this.points[0].y);
                     
                     if (this.points.length === 2) {
-                        // Draw line to second point
                         this.ctx.lineTo(this.points[1].x, this.points[1].y);
-                        // Draw second point
-                        this.ctx.strokeStyle = '#007AFF';
                         this.ctx.stroke();
+                        
+                        // Draw second point
                         this.ctx.beginPath();
                         this.ctx.arc(this.points[1].x, this.points[1].y, 6, 0, Math.PI * 2);
+                        this.ctx.fillStyle = '#34C759';
                         this.ctx.fill();
                     } else {
-                        // Draw line to current position
                         this.ctx.lineTo(this.currentX, this.currentY);
-                        this.ctx.strokeStyle = '#007AFF';
                         this.ctx.stroke();
-                        this.updateTemporaryDistance();
                     }
                 }
             }
 
             animate() {
                 if (!this.active) return;
+
                 this.drawUI();
+                this.updateTemporaryDistance();
+
                 requestAnimationFrame(() => this.animate());
             }
         }
 
-        // Initialize app when page loads
-        document.addEventListener('DOMContentLoaded', () => {
-            new MeasureApp();
-        });
+        new MeasureApp();
     </script>
 </body>
 </html>
