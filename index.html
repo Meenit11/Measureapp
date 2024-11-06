@@ -3,124 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AR Measure App</title>
+    <title>Web Measure App</title>
     <style>
-        body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; }
-        #distanceDisplay {
+        /* Basic styling for fullscreen video and canvas */
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background-color: black;
+        }
+        #video, #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+        }
+        .controls button {
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+        .measurement {
             position: absolute;
             top: 20px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.7);
             color: white;
+            background: rgba(0, 0, 0, 0.5);
             padding: 10px 20px;
+            border-radius: 10px;
             font-size: 24px;
-            border-radius: 10px;
-        }
-        #startBtn {
-            position: absolute;
-            bottom: 40px;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 15px 30px;
-            font-size: 18px;
-            background-color: #007AFF;
-            color: white;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
         }
     </style>
 </head>
 <body>
-    <div id="distanceDisplay">Distance: 0.00 m</div>
-    <button id="startBtn">Start Measuring</button>
-    
-    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-    <script src="https://rawcdn.githack.com/jeromeetienne/AR.js/1.7.2/aframe/build/aframe-ar.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
-    <a-scene embedded arjs>
-        <!-- Camera setup -->
-        <a-camera id="camera" position="0 0 0" look-controls></a-camera>
-        
-        <!-- Crosshair for the center screen position -->
-        <a-entity id="crosshair" geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.02" 
-                  position="0 0 -1" material="color: white; shader: flat;"></a-entity>
-    </a-scene>
-
-    <script>
-        let scene, point1, point2, distanceDisplay, startBtn, measuring = false;
-        
-        // Initialize references
-        distanceDisplay = document.getElementById("distanceDisplay");
-        startBtn = document.getElementById("startBtn");
-        
-        // Handler to start/reset measurement
-        startBtn.addEventListener("click", () => {
-            measuring = !measuring;
-            if (measuring) {
-                startBtn.innerText = "Reset";
-                placePoints();
-            } else {
-                resetMeasurement();
-                startBtn.innerText = "Start Measuring";
-            }
-        });
-
-        // Function to place points and calculate distance
-        function placePoints() {
-            scene = document.querySelector('a-scene');
-            
-            scene.addEventListener('click', (event) => {
-                if (!point1) {
-                    point1 = addPoint();
-                } else if (!point2) {
-                    point2 = addPoint();
-                    calculateDistance();
-                }
-            });
-        }
-
-        // Reset the points and display
-        function resetMeasurement() {
-            if (point1) scene.removeChild(point1);
-            if (point2) scene.removeChild(point2);
-            point1 = null;
-            point2 = null;
-            distanceDisplay.innerText = "Distance: 0.00 m";
-        }
-
-        // Function to add a 3D point in space
-        function addPoint() {
-            const point = document.createElement('a-sphere');
-            point.setAttribute('radius', '0.05');
-            point.setAttribute('color', 'red');
-            point.setAttribute('position', getCurrentCameraPosition());
-            scene.appendChild(point);
-            return point;
-        }
-
-        // Calculate and display the distance between two points
-        function calculateDistance() {
-            const pos1 = point1.getAttribute('position');
-            const pos2 = point2.getAttribute('position');
-            
-            const distance = Math.sqrt(
-                Math.pow(pos2.x - pos1.x, 2) +
-                Math.pow(pos2.y - pos1.y, 2) +
-                Math.pow(pos2.z - pos1.z, 2)
-            );
-            
-            distanceDisplay.innerText = `Distance: ${distance.toFixed(2)} m`;
-        }
-
-        // Get the current position of the camera
-        function getCurrentCameraPosition() {
-            const camera = document.getElementById("camera");
-            const position = camera.getAttribute("position");
-            return { x: position.x, y: position.y, z: position.z - 1 }; // Adjust Z for forward distance
-        }
-    </script>
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas"></canvas>
+    <div class="measurement" id="measurement">Distance: 0.00 m</div>
+    <div class="controls">
+        <button id="startBtn">Start</button>
+        <button id="resetBtn" disabled>Reset</button>
+    </div>
+    <script src="app.js"></script>
 </body>
 </html>
