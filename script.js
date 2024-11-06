@@ -1,149 +1,98 @@
-// class ARMeasure {
-//     constructor() {
-//         this.video = document.getElementById('camera-feed');
-//         this.canvas = document.getElementById('ar-canvas');
-//         this.ctx = this.canvas.getContext('2d');
-//         this.distanceEl = document.getElementById('distance');
-//         this.instructionEl = document.getElementById('instruction');
-        
-//         this.startButton = document.getElementById('startButton');
-//         this.captureButton = document.getElementById('captureButton');
-//         this.resetButton = document.getElementById('resetButton');
-        
-//         this.measuring = false;
-//         this.points = [];
-//         this.deviceMotion = { alpha: 0, beta: 0, gamma: 0 };
-        
-//         this.setupEventListeners();
-//         this.handleResize();
-//     }
-    
-//     setupEventListeners() {
-//         this.startButton.addEventListener('click', () => this.start());
-//         this.captureButton.addEventListener('click', () => this.capturePoint());
-//         this.resetButton.addEventListener('click', () => this.reset());
-        
-//         window.addEventListener('resize', () => this.handleResize());
-//         window.addEventListener('orientationchange', () => this.handleResize());
+// app.js
 
-//         if (window.DeviceOrientationEvent) {
-//             window.addEventListener('deviceorientation', (e) => {
-//                 this.deviceMotion = {
-//                     alpha: e.alpha,
-//                     beta: e.beta,
-//                     gamma: e.gamma
-//                 };
-//             });
-//         }
-//     }
-    
-//     async start() {
-//         try {
-//             const stream = await navigator.mediaDevices.getUserMedia({
-//                 video: { facingMode: 'environment' }
-//             });
-            
-//             this.video.srcObject = stream;
-//             await this.video.play();
-            
-//             this.measuring = true;
-//             this.startButton.style.display = 'none';
-//             this.captureButton.disabled = false;
-//             this.resetButton.disabled = false;
-//             this.instructionEl.textContent = 'Tap to capture first point';
-            
-//             this.render();
-//         } catch (error) {
-//             console.error('Camera access error:', error);
-//             this.instructionEl.textContent = 'Camera access denied';
-//         }
-//     }
-    
-//     capturePoint() {
-//         const point = {
-//             x: this.canvas.width / 2,
-//             y: this.canvas.height / 2,
-//             motion: { ...this.deviceMotion }
-//         };
-        
-//         this.points.push(point);
-        
-//         if (this.points.length === 1) {
-//             this.instructionEl.textContent = 'Move to capture second point';
-//         } else {
-//             this.calculateDistance();
-//             this.captureButton.disabled = true;
-//             this.instructionEl.textContent = 'Tap reset to start over';
-//         }
-//     }
-    
-//     calculateDistance() {
-//         if (this.points.length === 2) {
-//             const dx = this.points[1].x - this.points[0].x;
-//             const dy = this.points[1].y - this.points[0].y;
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const measurementText = document.getElementById('measurement');
+const startBtn = document.getElementById('startBtn');
+const resetBtn = document.getElementById('resetBtn');
 
-//             const pixelDistance = Math.sqrt(dx * dx + dy * dy);
+let points = [];
+let active = false;
 
-//             const estimatedMeters = (pixelDistance / this.canvas.width) * 2; // approximate
-//             this.distanceEl.textContent = estimatedMeters.toFixed(2);
-//         }
-//     }
-    
-//     reset() {
-//         this.points = [];
-//         this.distanceEl.textContent = '0.00';
-//         this.instructionEl.textContent = 'Tap to capture first point';
-//         this.captureButton.disabled = false;
-//     }
-    
-//     handleResize() {
-//         this.canvas.width = window.innerWidth;
-//         this.canvas.height = window.innerHeight;
-//     }
-    
-//     render() {
-//         if (!this.measuring) return;
+// Set up video stream for the camera
+async function setupCamera() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'environment' }
+        });
+        video.srcObject = stream;
+    } catch (error) {
+        console.error("Error accessing the camera: ", error);
+    }
+}
 
-//         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+// Function to start the measurement process
+startBtn.addEventListener('click', () => {
+    active = true;
+    points = [];
+    resetBtn.disabled = false;
+    startBtn.disabled = true;
+    measurementText.textContent = 'Distance: 0.00 m';
+});
 
-//         const centerX = this.canvas.width / 2;
-//         const centerY = this.canvas.height / 2;
-        
-//         this.ctx.strokeStyle = '#FFFFFF';
-//         this.ctx.lineWidth = 2;
+// Reset button functionality
+resetBtn.addEventListener('click', () => {
+    points = [];
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    measurementText.textContent = 'Distance: 0.00 m';
+    startBtn.disabled = false;
+    resetBtn.disabled = true;
+});
 
-//         this.ctx.beginPath();
-//         this.ctx.moveTo(centerX, centerY - 20);
-//         this.ctx.lineTo(centerX, centerY + 20);
-//         this.ctx.stroke();
-        
-//         this.ctx.beginPath();
-//         this.ctx.moveTo(centerX - 20, centerY);
-//         this.ctx.lineTo(centerX + 20, centerY);
-//         this.ctx.stroke();
-        
-//         if (this.points.length > 0) {
-//             this.points.forEach(point => {
-//                 this.ctx.beginPath();
-//                 this.ctx.arc(point.x, point.y, 6, 0, Math.PI * 2);
-//                 this.ctx.fillStyle = '#007AFF';
-//                 this.ctx.fill();
-//             });
-            
-//             if (this.points.length === 2) {
-//                 this.ctx.beginPath();
-//                 this.ctx.moveTo(this.points[0].x, this.points[0].y);
-//                 this.ctx.lineTo(this.points[1].x, this.points[1].y);
-//                 this.ctx.strokeStyle = '#007AFF';
-//                 this.ctx.lineWidth = 2;
-//                 this.ctx.stroke();
-//             }
-//         }
+// Utility to convert pixel distance to meters (approximate)
+const PIXELS_PER_METER = 200; // Adjust this based on your screen resolution
 
-//         requestAnimationFrame(() => this.render());
-//     }
-// }
+function calculateDistance(point1, point2) {
+    const dx = point2.x - point1.x;
+    const dy = point2.y - point1.y;
+    return Math.sqrt(dx * dx + dy * dy) / PIXELS_PER_METER;
+}
 
-// document.addEventListener('DOMContentLoaded', () => {
-//     new ARMeasure();
-// });
+// Handle canvas click to set points
+canvas.addEventListener('click', (e) => {
+    if (!active) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    points.push({ x, y });
+
+    // Draw points and lines
+    if (points.length === 1) {
+        drawPoint(points[0]);
+    } else if (points.length === 2) {
+        drawLine(points[0], points[1]);
+        const distance = calculateDistance(points[0], points[1]);
+        measurementText.textContent = `Distance: ${distance.toFixed(2)} m`;
+        active = false; // Stop further clicks until reset
+    }
+});
+
+function drawPoint(point) {
+    ctx.fillStyle = 'red';
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, 5, 0, 2 * Math.PI);
+    ctx.fill();
+}
+
+function drawLine(point1, point2) {
+    ctx.strokeStyle = 'red';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(point1.x, point1.y);
+    ctx.lineTo(point2.x, point2.y);
+    ctx.stroke();
+}
+
+// Resize canvas to fit the screen
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// Start camera and set up video feed
+setupCamera();
