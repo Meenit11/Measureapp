@@ -141,6 +141,11 @@
                 
                 this.points = [];
                 this.active = false;
+                this.currentPoint = { x: 0, y: 0 };
+                
+                // Constants for measurement calculation
+                this.CAMERA_FOV = 60; // Typical mobile camera FOV in degrees
+                this.ASSUMED_DEVICE_HEIGHT = 1.5; // meters, typical height people hold their phone
 
                 this.setupCanvas();
                 this.addEventListeners();
@@ -156,6 +161,21 @@
                 this.startBtn.addEventListener('click', () => this.start());
                 this.captureBtn.addEventListener('click', () => this.capture());
                 this.resetBtn.addEventListener('click', () => this.reset());
+                
+                // Track current point position
+                this.canvas.addEventListener('mousemove', (e) => this.updateCurrentPoint(e));
+                this.canvas.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    this.updateCurrentPoint(e.touches[0]);
+                });
+            }
+
+            updateCurrentPoint(event) {
+                if (this.points.length === 1) {
+                    this.currentPoint.x = event.clientX || event.pageX;
+                    this.currentPoint.y = event.clientY || event.pageY;
+                    this.calculateDistance(true); // Calculate temporary distance
+                }
             }
 
             async start() {
@@ -194,6 +214,7 @@
                     this.points.push(point);
                     
                     if (this.points.length === 1) {
+                        this.currentPoint = { ...point };
                         this.status.textContent = 'Move camera and tap to capture second point';
                     } else {
                         this.calculateDistance();
@@ -205,20 +226,31 @@
 
             reset() {
                 this.points = [];
+                this.currentPoint = { x: 0, y: 0 };
                 this.distance.textContent = '0.00';
                 this.status.textContent = 'Tap to capture first point';
                 this.captureBtn.disabled = false;
             }
 
-            calculateDistance() {
-                if (this.points.length === 2) {
-                    const dx = this.points[1].x - this.points[0].x;
-                    const dy = this.points[1].y - this.points[0].y;
+            calculateDistance(isTemporary = false) {
+                const point2 = isTemporary ? this.currentPoint : this.points[1];
+                
+                if (this.points[0] && point2) {
+                    const dx = point2.x - this.points[0].x;
+                    const dy = point2.y - this.points[0].y;
                     const pixelDistance = Math.sqrt(dx * dx + dy * dy);
                     
-                    // Convert pixels to meters (approximate)
-                    const meters = (pixelDistance / this.canvas.width) * 2;
-                    this.distance.textContent = meters.toFixed(2);
+                    // More realistic measurement calculation
+                    const viewAngle = (pixelDistance / this.canvas.width) * this.CAMERA_FOV;
+                    const radians = (viewAngle * Math.PI) / 180;
+                    
+                    // Using trigonometry to calculate approximate distance
+                    const meters = 2 * this.ASSUMED_DEVICE_HEIGHT * Math.tan(radians / 2);
+                    
+                    // Update display if it's a final measurement or if the change is significant
+                    if (!isTemporary || Math.abs(parseFloat(this.distance.textContent) - meters) > 0.01) {
+                        this.distance.textContent = meters.toFixed(2);
+                    }
                 }
             }
 
@@ -246,19 +278,26 @@
 
                 // Draw points and line
                 if (this.points.length > 0) {
-                    this.points.forEach(point => {
-                        this.ctx.beginPath();
-                        this.ctx.arc(point.x, point.y, 6, 0, Math.PI * 2);
-                        this.ctx.fillStyle = '#007AFF';
-                        this.ctx.fill();
-                    });
+                    // Draw first point
+                    this.ctx.beginPath();
+                    this.ctx.arc(this.points[0].x, this.points[0].y, 6, 0, Math.PI * 2);
+                    this.ctx.fillStyle = '#007AFF';
+                    this.ctx.fill();
 
+                    // Draw line to current point or second point
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(this.points[0].x, this.points[0].y);
+                    
                     if (this.points.length === 2) {
-                        this.ctx.beginPath();
-                        this.ctx.moveTo(this.points[0].x, this.points[0].y);
                         this.ctx.lineTo(this.points[1].x, this.points[1].y);
-                        this.ctx.strokeStyle = '#007AFF';
-                        this.ctx.lineWidth = 2;
+                        // Draw second point
+                        this.ctx.stroke();
+                        this.ctx.beginPath();
+                        this.ctx.arc(this.points[1].x, this.points[1].y, 6, 0, Math.PI * 2);
+                        this.ctx.fill();
+                    } else {
+                        // Draw line to current mouse/touch position
+                        this.ctx.lineTo(this.currentPoint.x, this.currentPoint.y);
                         this.ctx.stroke();
                     }
                 }
