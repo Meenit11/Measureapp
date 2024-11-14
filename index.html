@@ -3,83 +3,101 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AR Measurement App</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      background-color: #f0f0f0;
-    }
-
-    canvas {
-      width: 100%;
-      height: 100%;
-      position: absolute;
-      top: 0;
-      left: 0;
-      z-index: -1;
-    }
-
-    .overlay {
-      background-color: rgba(255, 255, 255, 0.8);
-      padding: 20px;
-      border-radius: 8px;
-      text-align: center;
-    }
-
-    .result {
-      font-size: 24px;
-      font-weight: bold;
-      margin-top: 10px;
-    }
-  </style>
+  <title>AR Measure App</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@webxr-input-profiles/motion-controllers"></script>
+  <script src="https://threejs.org/examples/jsm/webxr/VRButton.js"></script>
 </head>
-<body>
-  <div class="overlay">
-    <h1>AR Measurement App</h1>
-    <p>Point your camera at an object and click the button to measure its length.</p>
-    <button id="measureButton">Measure</button>
-    <div class="result" id="result"></div>
-  </div>
-  <canvas id="arCanvas"></canvas>
-
+<body style="margin: 0;">
+  <div id="container"></div>
   <script>
-    const measureButton = document.getElementById('measureButton');
-    const resultDiv = document.getElementById('result');
-    const arCanvas = document.getElementById('arCanvas');
-    const arContext = arCanvas.getContext('2d');
+    let container;
+    let camera, scene, renderer;
+    let controller, controllerGrip;
+    let raycaster;
+    let points = [];
+    let measuring = false;
 
-    // Check if the device supports WebRTC and AR features
-    if (navigator.mediaDevices && window.ThreeJS) {
-      navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
-        const video = document.createElement('video');
-        video.srcObject = stream;
-        video.play();
+    init();
+    animate();
 
-        // Attach the video to the canvas
-        arCanvas.width = video.videoWidth;
-        arCanvas.height = video.videoHeight;
-        function drawVideo() {
-          arContext.drawImage(video, 0, 0, arCanvas.width, arCanvas.height);
-          requestAnimationFrame(drawVideo);
-        }
-        drawVideo();
+    function init() {
+      container = document.getElementById('container');
+      
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 50);
+      
+      // Light
+      const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+      light.position.set(0.5, 1, 0.25);
+      scene.add(light);
 
-        // Add event listener to the measure button
-        measureButton.addEventListener('click', () => {
-          // Implement AR measurement logic here
-          const measuredLength = 50; // Replace with your actual measurement logic
-          resultDiv.textContent = `Measured length: ${measuredLength} cm`;
-        });
-      });
-    } else {
-      resultDiv.textContent = 'This device does not support the required features for this app.';
+      // Renderer
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.xr.enabled = true;
+      container.appendChild(renderer.domElement);
+
+      document.body.appendChild(VRButton.createButton(renderer));
+
+      // Raycaster for measuring points
+      raycaster = new THREE.Raycaster();
+
+      // AR controllers
+      controller = renderer.xr.getController(0);
+      controller.addEventListener('selectstart', onSelectStart);
+      controller.addEventListener('selectend', onSelectEnd);
+      scene.add(controller);
+
+      // Basic ground grid for reference
+      const grid = new THREE.GridHelper(10, 10, 0x888888, 0x444444);
+      grid.rotation.x = Math.PI / 2;
+      scene.add(grid);
+
+      window.addEventListener('resize', onWindowResize);
+    }
+
+    function onSelectStart(event) {
+      measuring = true;
+      const point = getControllerPosition(event.target);
+      if (point) points.push(point);
+    }
+
+    function onSelectEnd(event) {
+      measuring = false;
+      if (points.length === 2) {
+        measureDistance();
+        points = [];
+      }
+    }
+
+    function getControllerPosition(controller) {
+      const tempMatrix = new THREE.Matrix4().identity().extractRotation(controller.matrixWorld);
+      const position = new THREE.Vector3().setFromMatrixPosition(controller.matrixWorld);
+      return position;
+    }
+
+    function measureDistance() {
+      if (points.length === 2) {
+        const distance = points[0].distanceTo(points[1]);
+        alert(`Measured Distance: ${distance.toFixed(2)} meters`);
+      }
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function animate() {
+      renderer.setAnimationLoop(render);
+    }
+
+    function render() {
+      renderer.render(scene, camera);
     }
   </script>
+</body>
 </html>
