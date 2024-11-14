@@ -1,61 +1,85 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Measure App</title>
-    <style>
-        /* Basic styling for fullscreen video and canvas */
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            font-family: Arial, sans-serif;
-            background-color: black;
-        }
-        #video, #canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        .controls {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 10px;
-        }
-        .controls button {
-            padding: 10px 20px;
-            font-size: 16px;
-        }
-        .measurement {
-            position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: white;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 10px 20px;
-            border-radius: 10px;
-            font-size: 24px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AR Measurement App</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background-color: #f0f0f0;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: -1;
+    }
+
+    .overlay {
+      background-color: rgba(255, 255, 255, 0.8);
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .result {
+      font-size: 24px;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+  </style>
 </head>
 <body>
-    <video id="video" autoplay playsinline></video>
-    <canvas id="canvas"></canvas>
-    <div class="measurement" id="measurement">Distance: 0.00 m</div>
-    <div class="controls">
-        <button id="startBtn">Start</button>
-        <button id="resetBtn" disabled>Reset</button>
-    </div>
-    <script src="app.js"></script>
-</body>
+  <div class="overlay">
+    <h1>AR Measurement App</h1>
+    <p>Point your camera at an object and click the button to measure its length.</p>
+    <button id="measureButton">Measure</button>
+    <div class="result" id="result"></div>
+  </div>
+  <canvas id="arCanvas"></canvas>
+
+  <script>
+    const measureButton = document.getElementById('measureButton');
+    const resultDiv = document.getElementById('result');
+    const arCanvas = document.getElementById('arCanvas');
+    const arContext = arCanvas.getContext('2d');
+
+    // Check if the device supports WebRTC and AR features
+    if (navigator.mediaDevices && window.ThreeJS) {
+      navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
+        const video = document.createElement('video');
+        video.srcObject = stream;
+        video.play();
+
+        // Attach the video to the canvas
+        arCanvas.width = video.videoWidth;
+        arCanvas.height = video.videoHeight;
+        function drawVideo() {
+          arContext.drawImage(video, 0, 0, arCanvas.width, arCanvas.height);
+          requestAnimationFrame(drawVideo);
+        }
+        drawVideo();
+
+        // Add event listener to the measure button
+        measureButton.addEventListener('click', () => {
+          // Implement AR measurement logic here
+          const measuredLength = 50; // Replace with your actual measurement logic
+          resultDiv.textContent = `Measured length: ${measuredLength} cm`;
+        });
+      });
+    } else {
+      resultDiv.textContent = 'This device does not support the required features for this app.';
+    }
+  </script>
 </html>
